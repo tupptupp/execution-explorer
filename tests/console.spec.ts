@@ -229,17 +229,24 @@ test("corrupt saved data blocks execution rather than resetting silently", async
   ).toBeVisible();
 });
 
-test("mobile workflow stages remain readable, selectable and inside viewport", async ({ page, isMobile }) => {
+test("mobile workflow stages remain readable, selectable and inside viewport", async ({
+  page,
+  isMobile,
+}) => {
   test.skip(!isMobile, "This view is designed for mobile screens");
   const region = page.getByRole("region", { name: "Workflow stages" });
   await expect(region).toBeVisible();
   const stages = region.getByRole("button");
   await expect(stages).toHaveCount(6);
-  const stage = region.getByRole("button", { name: "Validate schema: Pending" });
+  const stage = region.getByRole("button", {
+    name: "Validate schema: Pending",
+  });
   await expect(stage).toBeVisible();
   await stage.click();
   await expect(stage).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".inspector")).toContainText("Validate schema");
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - innerWidth,
+  );
   expect(overflow).toBeLessThanOrEqual(0);
 });
