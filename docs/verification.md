@@ -1,36 +1,45 @@
 # Verification report
 
-Recorded on 2026-10-16. Claims below refer to this development revision, not the original production demo. Commands are reproducible from the repository root with dependencies installed.
+Final engineering review recorded on 2026-10-16. Evidence below concerns `feature/workflow-engine`, not the original production demo. The reviewed starting point was `14b57f2c2c8cfc28718b124019c7e19a3ee2e9a3`, whose [CI run](https://github.com/tupptupp/execution-explorer/actions/runs/38925164207) was independently confirmed successful. No AGENTS.md was present in the repository tree.
 
-## Automated checks actually executed locally
+## Checks executed during this review
 
-| Check                                             | Result                                         | Scope                                                                          |
-| ------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
-| `npm run build`                                   | Passed                                         | Strict TypeScript frontend compilation and Vite production bundle              |
-| `npm --prefix packages/workflow-engine run check` | Passed                                         | Isolated strict engine typecheck                                               |
-| `npm run test:engine`                             | 34 passed                                      | Node test runner, including 20 deterministic seeded DAG shapes inside one test |
-| `npm run test:e2e`                                | 16 passed                                      | Eight scenarios in desktop and mobile Chromium configurations                  |
-| axe WCAG 2 A/AA + 2.1 AA checks                   | No violations in tested views                  | Ready and fault/recovery views, desktop and mobile                             |
-| `npm audit --omit=dev`                            | Zero reported vulnerabilities at time of check | Production dependency advisory scan, not a security audit                      |
+| Check                                                                          | Result                        | Scope                                                                                                                              |
+| ------------------------------------------------------------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`                                                                | Passed                        | Strict frontend production build, isolated engine typecheck and engine tests                                                       |
+| `npm --prefix packages/workflow-engine test` after final engine edits          | 38 passed                     | Includes deterministic backoff, input mutation, dependency history, duplicate event and numeric-ID regressions                     |
+| `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/tmp/chromium npm run test:e2e -- --workers=2` | 19 passed, 1 skipped          | Production build and desktop/mobile Chromium browser behavior; the mobile-only stage-list case is intentionally skipped on desktop |
+| axe WCAG 2 A/AA + 2.1 AA                                                       | No violations in tested views | Ready and fault/recovery views on desktop and mobile                                                                               |
+| `npm run format:check`                                                         | Passed                        | Repository Prettier check                                                                                                          |
+| `git diff --check`                                                             | Passed                        | Patch whitespace check                                                                                                             |
+| `npm audit --omit=dev --json`                                                  | Zero reported vulnerabilities | Production dependency advisories at check time; not a security audit                                                               |
+| `npm run benchmark` / `node scripts/benchmark.mjs` after engine build          | Completed                     | Six cases, two warmups and ten measured samples per case; actual samples retained                                                  |
 
-Local runtime: Node 24.19.0 on Linux x64. Browser tests used Chromium 153 from a separately installed test binary via `PLAYWRIGHT_CHROMIUM_EXECUTABLE` because the default Playwright CDN returned invalid archives in the execution environment. That workaround is not a project dependency. CI uses Playwright's matched browser download and Node 22/24 engine jobs. CI also passed for implementation commit `4b9d77cda860e3fb0b975a6b02abae0101a5d564`: [GitHub Actions run](https://github.com/tupptupp/execution-explorer/actions/runs/38918005550). Both Node 22/24 engine jobs and the complete console/browser job succeeded with Playwright’s matched browser download.
+Local environment: Node 24.19.0, Linux x64. The Playwright browser CDN returned truncated archives. A separately installed Chromium 153 binary was used through the existing executable override. This temporary test dependency is outside the repository. CI uses Playwright's matched browser and engine jobs on Node 22 and 24. The final head's CI result is recorded in [PR #1](https://github.com/tupptupp/execution-explorer/pull/1); consult that result rather than treating the starting-point run above as verification of subsequent edits.
 
-Browser coverage includes a real transient retry, immutable inspector output, JSON download, event scrubbing, persisted reload, outage acknowledgement and recovery without rerunning completed entry steps, reload during active execution, stop and resume, competing tabs, keyboard skip link, reduced-motion preference, and page-width overflow. Mobile uses a 390px viewport in Chromium; it is not a physical iPhone or Safari test. Focus, native controls and the graph were also inspected in generated desktop/mobile screenshots. Automated axe checks do not certify complete accessibility or screen-reader usability.
+Browser tests now build and serve the production bundle, refuse to reuse another server on port 4173, and avoid development-server hot reload. An initial run against the development server had one failure when an engine edit triggered a reload during execution. The complete production-preview rerun passed without retries.
 
-## Measured build size
+Coverage includes transient retries, inspection, JSON download, replay, persisted reload, deliberate outage recovery preserving completed steps, interruption, stop/resume, competing tabs, malformed checkpoints and malformed localStorage session identifiers. Layout checks cover page overflow, keyboard controls, reduced motion and the mobile stage list. Desktop and mobile screenshots were visually inspected. Mobile means an emulated 390px Chromium viewport, not physical iPhone or Safari validation. Automated axe results do not certify complete WCAG conformance or screen-reader usability.
 
-The local build at this verification point produced approximately **261 kB JavaScript (81 kB gzip)** and **19 kB CSS (5.3 kB gzip)**. Exact filenames and sizes can change with code changes. These are Vite build outputs, not measured network transfer or Core Web Vitals. There are no runtime image, video or webfont downloads, WebGL libraries, analytics scripts or always-running animation loops.
+## Reproduced defects and fixes
 
-## Measured engine costs
+- Before the engine fixes, both new regression tests failed: caller mutation while storage was loading caused a deadlock, and a history starting a dependent before its prerequisite completed was accepted. Both pass after the fixes. The runner now copies task metadata, dependency arrays and option values before awaiting storage and checks dependency ordering across historical starts.
+- Checkpoint decoding now requires string task IDs, preventing property-key coercion from admitting malformed events. Duplicate terminal events are explicitly regression-tested.
+- Session loading now validates the scenario-prefixed UUID before rendering. A malformed current-session pointer falls back to a fresh session; existing IndexedDB records are not deleted. Checkpoint corruption itself still fails explicitly.
+- Backoff growth is checked with mocked timers at 99/100 and 199/200 milliseconds, without real-time sleeps.
 
-`npm run benchmark` builds the engine and runs `scripts/benchmark.mjs`. Raw results, timestamp, runtime, CPU and methodology are in [benchmark-results.json](benchmark-results.json). Each case uses a serial no-I/O chain, two warmups and ten measured samples. Percentiles use nearest-rank selection; p95 is effectively the slowest of these ten samples. The measurements are illustrative microbenchmarks from one shared container, not statistically strong throughput guarantees.
+## Build and benchmark evidence
 
-Compare the `none` and `memory (full checkpoint serialization)` cases. Full snapshots copy the entire journal and accumulated outputs on every transition; larger cases expose significant overhead. The memory adapter measures validation/copy/serialization overhead, **not real IndexedDB latency or disk durability**. Browser task durations additionally include deliberate simulated service waits, timer scheduling, storage, rendering and retry backoff.
+The verified production build produced approximately **262 kB JavaScript (81.4 kB gzip)** and **20.8 kB CSS (5.6 kB gzip)**. These are Vite bundle sizes, not measured network transfer, Lighthouse or Core Web Vitals.
 
-There is no claim of production throughput, distributed safety, exactly-once effects, power-loss durability, Lighthouse score, Core Web Vitals, or a penetration test.
+[benchmark-results.json](benchmark-results.json) contains the final local measurements, CPU, runtime, timestamp, method and all ten samples in measurement order for each case. Percentiles use nearest-rank selection; p95 is the maximum of ten samples. There is no forced garbage collection or memory/RSS measurement. Shared-container load varies; these are illustrative costs, not a regression threshold or a statistically strong performance claim.
 
-## Deployment and release
+Full checkpoints copy and validate the accumulated journal and outputs on every transition. Comparing `none` with `memory (full checkpoint serialization)` exposes this scaling cost. The memory adapter does not measure IndexedDB latency, storage durability or production throughput. Checkpointing remains intentionally scoped to small workflows; a transactional incremental design would be needed to scale it. Browser demo durations include deliberate service waits and retry backoff.
 
-Implementation commit `4b9d77cda860e3fb0b975a6b02abae0101a5d564` passed local checks and GitHub Actions. Vercel reported the separate deployment successful at 2026-10-16 14:43 UTC. The [branch preview](https://execution-explorer-git-feature-workflo-b64f9e-tupptupp1337-3910.vercel.app) redirected the verification browser to Vercel login. Its deployed UI therefore has **not** yet been independently smoke-tested. The preview is not currently a publicly accessible portfolio demo; Vercel access and a deliberate public-preview release decision remain required. No authentication protection was disabled.
+## Deployment and release boundary
 
-The development branch is verified before updating its PR. Vercel's GitHub integration can create a branch preview without changing the production alias. Live-preview and GitHub Actions outcomes are linked from PR #1 once available. `main` and the original production deployment must remain unchanged until an explicit release decision. A Vercel build-success status alone does not prove browser behavior; the preview needs a separate smoke check.
+No merge, production promotion, Vercel setting or production domain was changed. Main was initially confirmed at `ad514ef62de7d6f5f6ba77001a1ae8493de65a7b`; final remote-head comparison and CI checks are recorded in PR #1.
+
+The production HTML was successfully fetched by a read-only HTTP request and still referenced the original bundle. This does **not** establish end-to-end production functionality. Browser visits to the production/branch-preview URLs encountered network failures, and a subsequent visit was blocked by automatic safety review because of a request to an external Sentry endpoint with an unspecified payload. No attempt was made to bypass that block. Deployed UI behavior remains unverified in this review.
+
+The branch preview was previously reported as requiring Vercel sign-in. That access condition was not successfully reverified here and is not assumed to have changed. A successful Vercel deployment status is not a deployed-browser smoke check. PR #1 remains Draft until the remaining release checks are completed. Local correctness evidence supports code review; public-demo readiness remains conditional.

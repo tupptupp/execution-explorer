@@ -25,11 +25,13 @@ for (const size of [6, 50, 200])
       });
       if (sample >= 2) samples.push(performance.now() - start);
     }
+    const samplesMs = samples.map((value) => +value.toFixed(3));
     samples.sort((a, b) => a - b);
     results.push({
       tasks: size,
       store: persistent ? "memory (full checkpoint serialization)" : "none",
       samples: samples.length,
+      samplesMs,
       p50Ms: +samples[Math.ceil(samples.length * 0.5) - 1].toFixed(3),
       p95Ms: +samples[Math.ceil(samples.length * 0.95) - 1].toFixed(3),
     });
@@ -42,7 +44,7 @@ console.log(
       platform: platform() + " " + arch(),
       cpu: cpus()[0]?.model,
       method:
-        "Serial no-I/O chain; 2 warmups + 10 measured samples per case. Single process; no service latency. Memory adapter is not an IndexedDB or production durability benchmark.",
+        "Serial no-I/O chain; 2 warmups + 10 measured samples per case. Single process; no service latency. No forced GC or memory/RSS measurement. Shared container results vary with load. Memory adapter is not an IndexedDB or production durability benchmark.",
       results,
     },
     null,

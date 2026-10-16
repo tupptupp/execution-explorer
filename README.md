@@ -40,16 +40,18 @@ npm run dev
 ```bash
 npm run check             # production build, engine typecheck and engine tests
 npx playwright install chromium
-npm run test:e2e          # desktop + mobile Chromium, including axe checks
+npm run test:e2e          # builds and tests production preview; desktop + mobile + axe
 npm run format:check
 npm run benchmark         # reproducible local no-I/O microbenchmark
 ```
 
-`npm run preview` serves the production build. HTTPS or localhost is required for browser ownership APIs. Mobile tests emulate a mobile viewport in Chromium; they do not certify Safari or real-device compatibility.
+`npm run preview` serves the production build. Browser tests build and start their own preview on port 4173; stop any existing server on that port first. HTTPS or localhost is required for browser ownership APIs. Mobile tests emulate a mobile viewport in Chromium; they do not certify Safari or real-device compatibility.
 
 ## What this does and does not promise
 
 Task starts are saved before invocation. A crash **after an external effect but before its completion write** can still cause that effect to repeat during recovery. Idempotency keys help an external service deduplicate; they do not guarantee exactly-once delivery. Cancellation is cooperative, and browser storage can be cleared or evicted.
+
+The current local review passed 38 engine tests and 19 browser tests (plus one intentional desktop skip of a mobile-only case). CI and deployed-preview status are tracked in PR #1; see the verification report for exact scope and remaining release checks.
 
 Full checkpoints deliberately favor inspectability over large-scale throughput. The report includes measured serialization costs and the point at which this approach becomes expensive. This is not a production distributed workflow platform. See [the complete semantics and limits](docs/architecture.md).
 

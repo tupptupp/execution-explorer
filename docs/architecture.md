@@ -17,7 +17,7 @@ The engine has no React dependency. It can be tested in Node. Browser APIs live 
 
 ## A committed transition precedes an effect
 
-1. Validate the DAG, options, definition version and any stored checkpoint.
+1. Copy task definitions, dependency arrays and option values before the first await; validate the DAG, options, definition version and any stored checkpoint. Callback closures and storage adapters remain caller-owned resources.
 2. Acquire exclusive console ownership with Web Locks in the browser integration.
 3. Persist the initial state with revision zero and a compare-and-swap check against absence.
 4. For a ready task, persist `started` and its next attempt number **before invoking the callback**.
@@ -33,7 +33,7 @@ A versioned checkpoint contains run identity, definition identity, revision, tas
 
 `save(checkpoint, expectedRevision)` must compare and replace atomically. IndexedDB does this in one read/write transaction, including across tabs. The memory adapter exercises the same contract in Node tests. The console also uses Web Locks so two tabs cannot intentionally run the console simultaneously. CAS detects stale writers; it is not a distributed lease or an authorization boundary.
 
-On load, schema checks and event-state replay reject malformed records, invalid transitions, revision/sequence gaps, mismatched outputs, changed definitions and completed steps whose dependencies are incomplete. No silent reset is performed. Browser data is local and untrusted; these checks detect structural inconsistency, **not maliciously rewritten consistent history**.
+On load, schema checks and event-state replay reject malformed records, invalid transitions, revision/sequence gaps, mismatched outputs, changed definitions and task starts that precede their dependencies’ completion. No silent reset is performed. Browser data is local and untrusted; these checks detect structural inconsistency, **not maliciously rewritten consistent history**.
 
 The current session pointer uses localStorage; the actual execution is in IndexedDB. Storage failures are reported explicitly. There is no server copy or cross-device sync. Old runs remain in IndexedDB; only the current session is exposed. Long-term retention/history management is intentionally outside this demo's scope.
 
@@ -51,7 +51,7 @@ Timeouts and stop requests are cooperative. JavaScript cannot terminate an arbit
 
 ## Presentation and accessibility
 
-The graph is SVG/CSS with native button nodes. Motion follows active edges; it does not run a permanent render loop. A ResizeObserver fits the desktop graph. Mobile retains readable nodes in a keyboard-focusable scroll region; users can zoom and inspect nodes. A tabular journal provides the same task/event information. State names supplement colors; focus rings, a skip link, labeled controls and a focusable output region support keyboard use. Reduced-motion preference removes animated flow and transitions.
+The graph is SVG/CSS with native button nodes. Motion follows active edges; it does not run a permanent render loop. A ResizeObserver fits the desktop graph. Desktop users can zoom and inspect nodes in a keyboard-focusable graph region. Mobile uses a separate clickable stage list with dependency labels; the wide graph and zoom controls are hidden. A tabular journal provides the same task/event information. State names supplement colors; focus rings, a skip link, labeled controls and a focusable output region support keyboard use. Reduced-motion preference removes animated flow and transitions.
 
 The visual direction uses restrained depth, precise typography, spatial hierarchy and purposeful movement. All graph geometry, styling and motion are original code. No Lusion code, assets, screenshots or fonts were copied. Lucide icons retain their package license. System fonts avoid third-party font requests.
 

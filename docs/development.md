@@ -22,3 +22,9 @@ Martin Carlsson supplied the project direction, portfolio objectives and constra
 ## Release boundary
 
 CI and a Vercel branch preview can be created from this PR without changing the production demo. Merging into main, promoting the preview to production, changing production domains or deleting deployments require a separate explicit release decision. A passing test suite is scoped evidence, not a security audit or a guarantee of distributed execution semantics.
+
+## Final engineering review — 2026-10-16
+
+Review of the current branch found two reproducible engine defects, fixed with failing-then-passing tests: mutable caller definitions crossing an asynchronous storage boundary, and checkpoint histories violating dependency start order. Additional changes validate persisted event task IDs and local session identifiers, check exponential backoff with mocked timers, and run browser tests against the production bundle. Benchmark output now includes individual samples. The existing desktop design and mobile stage-list interaction were preserved after screenshot and accessibility review.
+
+The final local suite passed 38 engine tests and 19 browser tests, with one intentional desktop skip of a mobile-only test. See the verification report for runtime details, the initial hot-reload test failure, and the blocked deployed-browser smoke check. These results support review of a small browser workflow interpreter; they do not establish production distributed-system guarantees or the owner's unaided implementation experience.
