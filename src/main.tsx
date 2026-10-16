@@ -476,7 +476,7 @@ function App() {
                 </button>
               </div>
             </div>
-            <div className="event-table-wrap">
+            <div className="event-table-wrap" role="region" aria-label="Scrollable execution event journal" tabIndex={0}>
               <table>
                 <thead>
                   <tr>
