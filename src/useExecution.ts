@@ -22,6 +22,10 @@ function initial(): Session {
     if (
       data &&
       typeof data.id === "string" &&
+      /^(success|retry|failure):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        data.id,
+      ) &&
+      data.id.startsWith(data.scenario + ":") &&
       ["success", "retry", "failure"].includes(data.scenario)
     )
       return data;

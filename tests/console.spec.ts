@@ -250,3 +250,21 @@ test("mobile workflow stages remain readable, selectable and inside viewport", a
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("invalid saved session identifier does not crash the console", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "execution-explorer/current-v2",
+      JSON.stringify({ id: "broken", scenario: "success" }),
+    ),
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Run workflow" }),
+  ).toBeEnabled();
+  expect(errors).toEqual([]);
+});
