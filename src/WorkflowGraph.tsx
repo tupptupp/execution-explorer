@@ -42,15 +42,21 @@ export function WorkflowGraph({ states, selected, onSelect }: Props) {
             onClick={() => onSelect(node.id)}
             aria-pressed={selected === node.id}
           >
-            <span className="mobile-stage-index">{String(index + 1).padStart(2, "0")}</span>
+            <span className="mobile-stage-index">
+              {String(index + 1).padStart(2, "0")}
+            </span>
             <span className="mobile-stage-copy">
               <strong>{node.label}</strong>
               <small>{node.service}</small>
               <small className="mobile-stage-deps">
-                {node.dependsOn.length ? `After: ${node.dependsOn.join(", ")}` : "Workflow entry"}
+                {node.dependsOn.length
+                  ? `After: ${node.dependsOn.join(", ")}`
+                  : "Workflow entry"}
               </small>
             </span>
-            <span className="mobile-stage-status">{stateLabels[states[node.id]]}</span>
+            <span className="mobile-stage-status">
+              {stateLabels[states[node.id]]}
+            </span>
           </button>
         ))}
       </div>
