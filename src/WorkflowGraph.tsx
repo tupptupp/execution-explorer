@@ -33,6 +33,27 @@ export function WorkflowGraph({ states, selected, onSelect }: Props) {
         </div>
         <span className="micro">DAG · 6 NODES · 6 EDGES</span>
       </div>
+      <div className="mobile-workflow" aria-label="Workflow stages">
+        {nodes.map((node, index) => (
+          <button
+            type="button"
+            className={`mobile-stage ${states[node.id]} ${selected === node.id ? "selected" : ""}`}
+            key={node.id}
+            onClick={() => onSelect(node.id)}
+            aria-pressed={selected === node.id}
+          >
+            <span className="mobile-stage-index">{String(index + 1).padStart(2, "0")}</span>
+            <span className="mobile-stage-copy">
+              <strong>{node.label}</strong>
+              <small>{node.service}</small>
+              <small className="mobile-stage-deps">
+                {node.dependsOn.length ? `After: ${node.dependsOn.join(", ")}` : "Workflow entry"}
+              </small>
+            </span>
+            <span className="mobile-stage-status">{stateLabels[states[node.id]]}</span>
+          </button>
+        ))}
+      </div>
       <div
         ref={viewport}
         className="graph-viewport"
