@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {runWorkflow,type Task} from './engine.js';
+const task=(id:string,dependsOn:string[]=[],run:Task['run']=async()=>id):Task=>({id,dependsOn,run});
+test('respects dependencies',async()=>{const o:string[]=[];const r=await runWorkflow([task('b',['a'],async()=>{o.push('b')}),task('a',[],async()=>{o.push('a')})]);assert.deepEqual(o,['a','b']);assert.equal(r.states.b,'completed')});
+test('bounds parallelism',async()=>{let active=0,max=0;const work=async()=>{active++;max=Math.max(active,max);await new Promise(r=>setTimeout(r,15));active--};await runWorkflow([task('a',[],work),task('b',[],work),task('c',[],work)],{concurrency:2});assert.equal(max,2)});
+test('retries then succeeds',async()=>{let n=0;const r=await runWorkflow([{...task('a',[],async()=>{if(++n<3)throw Error('temporary');return 42}),retries:2}]);assert.equal(n,3);assert.equal(r.values.a,42);assert.equal(r.events.filter(e=>e.type==='retrying').length,2)});
+test('skips failed dependencies',async()=>{const r=await runWorkflow([task('a',[],async()=>{throw Error('failed')}),task('b',['a'])]);assert.equal(r.states.a,'failed');assert.equal(r.states.b,'skipped')});
+test('rejects cycles',async()=>assert.rejects(runWorkflow([task('a',['b']),task('b',['a'])]),/cycle/));
+test('rejects unknown dependencies',async()=>assert.rejects(runWorkflow([task('a',['missing'])]),/Unknown dependency/));
+test('rejects invalid concurrency',async()=>assert.rejects(runWorkflow([task('a')],{concurrency:0}),/concurrency/));
+test('timeout skips dependents',async()=>{const r=await runWorkflow([{...task('a',[],async({signal})=>{await new Promise<void>(resolve=>signal.addEventListener('abort',()=>resolve(),{once:true}))}),timeoutMs:20},task('b',['a'])]);assert.equal(r.states.a,'failed');assert.equal(r.states.b,'skipped')});
+test('rejects duplicate dependency',async()=>assert.rejects(runWorkflow([task('a'),task('b',['a','a'])]),/Duplicate dependency/));
+test('passes upstream result',async()=>{const r=await runWorkflow([task('a',[],async()=>21),task('b',['a'],async({results})=>(results.get('a') as number)*2)]);assert.equal(r.values.b,42)});
+test('immutable ordered events',async()=>{const seen:number[]=[];const r=await runWorkflow([task('a'),task('b',['a'])],{now:()=>123,onEvent:e=>{seen.push(e.sequence);throw Error('isolated')}});assert.deepEqual(seen,[1,2,3,4]);assert.ok(r.events.every(e=>Object.isFrozen(e)&&e.timestamp===123))});
+test('external abort skips dependent',async()=>{const c=new AbortController();const r=await runWorkflow([task('a',[],async()=>{c.abort();throw Error('cancelled')}),task('b',['a'])],{},c.signal);assert.equal(r.states.a,'failed');assert.equal(r.states.b,'skipped')});
+test('bounded retry delay',async()=>{let n=0;const r=await runWorkflow([{...task('a',[],async()=>{if(++n===1)throw Error('transient');return 'ok'}),retries:1}],{retryDelayMs:1});assert.equal(r.values.a,'ok');assert.equal(n,2)});
+test('deep chain without recursion overflow',async()=>{const chain=Array.from({length:3000},(_,i)=>task('n'+i,i?['n'+(i-1)]:[]));const r=await runWorkflow(chain);assert.equal(r.states.n2999,'completed')});
