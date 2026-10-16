@@ -1,40 +1,62 @@
 # Execution Explorer
 
-**An independent design-engineering portfolio concept by Martin Carlsson.**
+**Every step. Nothing hidden.**
 
-**[▶ Try the live demo](https://execution-explorer-sigma.vercel.app)** · [Source code](https://github.com/tupptupp/execution-explorer)
+An independent design-engineering portfolio project by **Martin Carlsson**: a working TypeScript workflow engine and an interactive React console for seeing how tasks execute, fail, retry and recover.
 
-A responsive observability interface for examining workflow executions, failure states, retries, and step-by-step traces. Built to explore how complex operational data can be made more understandable through interaction design.
+[Branch preview — Vercel sign-in required](https://execution-explorer-git-feature-workflo-b64f9e-tupptupp1337-3910.vercel.app) · [Development PR #1](https://github.com/tupptupp/execution-explorer/pull/1) · [Architecture](docs/architecture.md) · [Verification](docs/verification.md) · [Original demo](https://execution-explorer-sigma.vercel.app)
 
-> **Demo only.** All execution records and metrics are synthetic. This application has no backend and does not connect to Restate or any other company's production systems. It is not an official product.
+> Development is isolated on `feature/workflow-engine`. The original production demo remains on `main`. This console runs real workflow callbacks against simulated services, entirely in the browser. It has no backend and contains no real customer data.
 
-## Features
-- Search by execution name, ID, or workflow
-- Filter by status and environment
-- Select a run to inspect a multi-stage timeline
-- Inspect errors, retries, durations, and stage descriptions
-- Responsive desktop and mobile layout
-- Copy execution IDs where browser clipboard access is available
+## Inspect a working system
 
-## Stack
-React 19, TypeScript, Vite, Lucide icons, CSS.
+1. Run **Transient failure**. Watch two parallel branches diverge; enrichment fails once, backs off, and then unlocks the dependency barrier.
+2. Select a node to inspect its attempts, timing, service and persisted JSON result.
+3. Scrub the event replay to reconstruct the graph at an earlier event. Export the ordered trace as JSON.
+4. Run **Service outage**. The record write exhausts its retry budget; its dependent is skipped.
+5. Acknowledge recovery. Completed steps remain untouched; the simulated outage is resolved and incomplete steps resume with continuing attempt numbers.
+6. Reload during a run or stop it deliberately. Saved incomplete progress requires explicit recovery.
 
-## Local setup
+## Engineering decisions
+
+- Strict TypeScript engine, independent of React; validated DAGs and bounded scheduled concurrency.
+- Atomic IndexedDB checkpoints before effects; revision compare-and-swap and browser tab ownership.
+- Schema-validated recovery with event/state consistency checks and caller-versioned definitions.
+- Abort-aware demo tasks, bounded exponential backoff, timeout handling and dependency failure propagation.
+- Deeply immutable JSON outputs and task-local dependency maps.
+- Native interactive graph nodes, responsive zoom, event replay, keyboard navigation and reduced motion.
+- Automated engine, browser, interruption, multi-tab and accessibility tests; CI on Node 22 and 24.
+
+## Run locally
+
+Requires Node 22 or 24 and npm. No API keys, database service or environment secrets are needed.
+
 ```bash
-npm install
+npm ci
+npm ci --prefix packages/workflow-engine
 npm run dev
 ```
 
-Production build:
 ```bash
-npm run build
-npm run preview
+npm run check             # production build, engine typecheck and engine tests
+npx playwright install chromium
+npm run test:e2e          # builds and tests production preview; desktop + mobile + axe
+npm run format:check
+npm run benchmark         # reproducible local no-I/O microbenchmark
 ```
 
-## Design notes
-This project prioritizes information hierarchy, quick scanning, status clarity, accessible native controls and drill-down inspection. The sample data is intentionally deterministic so UI states can be reviewed without API credentials.
+`npm run preview` serves the production build. Browser tests build and start their own preview on port 4173; stop any existing server on that port first. HTTPS or localhost is required for browser ownership APIs. Mobile tests emulate a mobile viewport in Chromium; they do not certify Safari or real-device compatibility.
 
-## Scope & attribution
-Concept, product direction and visual review: **Martin Carlsson**. Implementation developed with **AI-assisted engineering**. This project is a standalone demonstration and uses no proprietary code, assets or customer data from Formodo.
+## What this does and does not promise
 
-**Verification:** Successfully deployed on Vercel. The project owner reported passing five manual functional checks covering search, status filters, execution timeline, environment filters and mobile layout. These are manual checks, not automated test coverage or a security audit.
+Task starts are saved before invocation. A crash **after an external effect but before its completion write** can still cause that effect to repeat during recovery. Idempotency keys help an external service deduplicate; they do not guarantee exactly-once delivery. Cancellation is cooperative, and browser storage can be cleared or evicted.
+
+The current local review passed 38 engine tests and 19 browser tests (plus one intentional desktop skip of a mobile-only case). CI and deployed-preview status are tracked in PR #1; see the verification report for exact scope and remaining release checks.
+
+Full checkpoints deliberately favor inspectability over large-scale throughput. The report includes measured serialization costs and the point at which this approach becomes expensive. This is not a production distributed workflow platform. See [the complete semantics and limits](docs/architecture.md).
+
+## Authorship and AI assistance
+
+Concept, product direction and visual review: **Martin Carlsson**. Implementation, test development, debugging and documentation are **AI-assisted**. Test and benchmark claims are tied to reproducible commands and recorded outcomes; generated code is not presented as evidence of prior employment or unaided expertise. See [development notes](docs/development.md).
+
+All graph visuals and CSS are original. No proprietary code, customer data or assets from Formodo or Lusion are used. Icons: [Lucide](https://lucide.dev/license), ISC license. React, TypeScript, Vite, Playwright and axe retain their respective licenses.
