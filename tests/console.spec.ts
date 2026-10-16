@@ -113,9 +113,18 @@ test("keyboard navigation, reduced motion, no page overflow, and automated acces
     width: innerWidth,
   }));
   expect(bounds.scroll).toBeLessThanOrEqual(bounds.width);
-  await expect(
-    page.getByRole("region", { name: "Scrollable workflow graph" }),
-  ).toBeVisible();
+  if (test.info().project.name === "mobile") {
+    await expect(
+      page.getByRole("region", { name: "Workflow stages" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Receive event: Pending" }),
+    ).toBeVisible();
+  } else {
+    await expect(
+      page.getByRole("region", { name: "Scrollable workflow graph" }),
+    ).toBeVisible();
+  }
   const result = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
@@ -158,8 +167,10 @@ test("happy path, new execution and graph controls", async ({ page }) => {
     timeout: 15000,
   });
   await expect(page.locator(".event-type.retrying")).toHaveCount(0);
-  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
-  await page.getByRole("button", { name: "Reset graph zoom" }).click();
+  if (test.info().project.name !== "mobile") {
+    await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+    await page.getByRole("button", { name: "Reset graph zoom" }).click();
+  }
   await page.getByRole("button", { name: "Play event replay" }).click();
   await expect(
     page.getByRole("button", { name: "Pause replay" }),
