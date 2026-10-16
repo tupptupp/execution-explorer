@@ -1,24 +1,41 @@
-# Workflow Engine — phase 1
+# Workflow engine
 
-A dependency-aware, bounded-concurrency **in-memory** workflow runner in strict TypeScript. Standalone research prototype; not yet connected to the dashboard.
+Strict TypeScript, dependency-aware workflow execution with explicit checkpoint recovery. No React dependency.
 
-### Supports
-- DAG validation (cycles, unknown and duplicated dependencies)
-- Stable scheduling order, bounded *scheduled* parallelism
-- Retry policy, exponential backoff, per-task timeouts, cooperative cancellation
-- Task results passed to downstream steps
-- Immutable monotonic events and injectable clock
-- Automated tests for success, failure, retry, timeout, abort, concurrency and a deep graph
-
-### Local checks
 ```bash
-cd packages/workflow-engine
-npm install
+npm ci
 npm run check
 npm test
 ```
 
-### Boundaries
-**Not a durable execution engine.** No database, process isolation, leases, checkpointing or exactly-once effects. JavaScript cannot forcibly stop an uncooperative asynchronous task: abort requests are cooperative. Timed-out underlying work may still perform effects, so the concurrency limit is a limit on *scheduled* tasks.
+From the repository root: `npm ci --prefix packages/workflow-engine && npm run test:engine`.
 
-This code is a standalone AI-assisted portfolio prototype. No private application code or credentials are used.
+## Example
+
+```ts
+import { runWorkflow } from "./src/engine";
+import { IndexedDBCheckpointStore } from "./src/stores";
+
+await runWorkflow(
+  [
+    { id: "read", run: async () => ({ amount: 42 }) },
+    {
+      id: "transform",
+      dependsOn: ["read"],
+      run: async ({ results }) => results.get("read"),
+    },
+  ],
+  {
+    runId: "example-1",
+    version: "example-implementation-1",
+    store: new IndexedDBCheckpointStore(),
+    concurrency: 2,
+  },
+);
+```
+
+Tasks return finite, acyclic JSON. An undefined return is normalized to null. Outputs are owned, deeply frozen copies. Dependency result maps are task-local and contain direct dependencies only.
+
+Writes commit before task effects. Incomplete checkpoints require explicit `recovery: 'retry-incomplete'`. Recovery retains completed steps, continues event and attempt counters and grants a fresh retry budget to incomplete steps. Bump `version` whenever task implementation semantics change.
+
+See [architecture and limits](../../docs/architecture.md) and [verification](../../docs/verification.md). This is a browser-hosted portfolio engine: no distributed leases, hard cancellation, exactly-once effects or server durability. AI-assisted implementation is documented openly.
