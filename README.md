@@ -4,7 +4,7 @@
 
 An independent design-engineering portfolio project by **Martin Carlsson**: a working TypeScript workflow engine and an interactive React console for seeing how tasks execute, fail, retry and recover.
 
-[Development PR #1](https://github.com/tupptupp/execution-explorer/pull/1) · [Architecture](docs/architecture.md) · [Verification](docs/verification.md) · [Original demo](https://execution-explorer-sigma.vercel.app)
+[Branch preview — Vercel sign-in required](https://execution-explorer-git-feature-workflo-b64f9e-tupptupp1337-3910.vercel.app) · [Development PR #1](https://github.com/tupptupp/execution-explorer/pull/1) · [Architecture](docs/architecture.md) · [Verification](docs/verification.md) · [Original demo](https://execution-explorer-sigma.vercel.app)
 
 > Development is isolated on `feature/workflow-engine`. The original production demo remains on `main`. This console runs real workflow callbacks against simulated services, entirely in the browser. It has no backend and contains no real customer data.
 
