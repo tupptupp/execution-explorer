@@ -4,9 +4,9 @@
 
 An independent design-engineering portfolio project by **Martin Carlsson**: a working TypeScript workflow engine and an interactive React console for seeing how tasks execute, fail, retry and recover.
 
-[Branch preview — Vercel sign-in required](https://execution-explorer-git-feature-workflo-b64f9e-tupptupp1337-3910.vercel.app) · [Development PR #1](https://github.com/tupptupp/execution-explorer/pull/1) · [Architecture](docs/architecture.md) · [Verification](docs/verification.md) · [Original demo](https://execution-explorer-sigma.vercel.app)
+**[Launch live demo](https://execution-explorer-sigma.vercel.app)** · [Architecture](docs/architecture.md) · [Verification](docs/verification.md) · [Engineering development](docs/development.md) · [Release PR #1](https://github.com/tupptupp/execution-explorer/pull/1)
 
-> Development is isolated on `feature/workflow-engine`. The original production demo remains on `main`. This console runs real workflow callbacks against simulated services, entirely in the browser. It has no backend and contains no real customer data.
+> **Live portfolio release.** The workflow engine and interactive console are available in the public demo. All workflow callbacks run against simulated services in the browser; this project has no backend, production integrations, or real customer data.
 
 ## Inspect a working system
 
@@ -51,7 +51,7 @@ npm run benchmark         # reproducible local no-I/O microbenchmark
 
 Task starts are saved before invocation. A crash **after an external effect but before its completion write** can still cause that effect to repeat during recovery. Idempotency keys help an external service deduplicate; they do not guarantee exactly-once delivery. Cancellation is cooperative, and browser storage can be cleared or evicted.
 
-The current local review passed 38 engine tests and 19 browser tests (plus one intentional desktop skip of a mobile-only case). CI and deployed-preview status are tracked in PR #1; see the verification report for exact scope and remaining release checks.
+The final review recorded 38 passing engine tests and 19 passing browser tests (plus one intentional desktop skip of a mobile-only case), with successful GitHub Actions verification on the release branch. Desktop behavior was subsequently verified in the deployed preview, and the mobile presentation was manually reviewed. See the [verification report](docs/verification.md) for the reproducible test setup and limits of its evidence.
 
 Full checkpoints deliberately favor inspectability over large-scale throughput. The report includes measured serialization costs and the point at which this approach becomes expensive. This is not a production distributed workflow platform. See [the complete semantics and limits](docs/architecture.md).
 
