@@ -346,3 +346,82 @@ test("states must be justified by a valid event history", async () => {
   );
   assert.throws(() => decodeCheckpoint({ ...saved, revision: 100 }), /Invalid/);
 });
+
+test("execution owns its definition before awaiting storage", async () => {
+  const base = new MemoryCheckpointStore();
+  let loaded!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    loaded = resolve;
+  });
+  const store: CheckpointStore = {
+    load: async () => {
+      await gate;
+      return null;
+    },
+    save: (checkpoint, revision) => base.save(checkpoint, revision),
+  };
+  let originalCalls = 0;
+  let replacementCalls = 0;
+  const dependencies = ["a"];
+  const tasks = [
+    { id: "a", run: async () => ++originalCalls },
+    { id: "b", dependsOn: dependencies, run: async () => ++originalCalls },
+  ];
+  const execution = runWorkflow(tasks, options(store));
+  tasks[0].run = async () => ++replacementCalls;
+  dependencies.push("missing");
+  tasks.push({ id: "injected", run: async () => ++replacementCalls });
+  loaded();
+  const result = await execution;
+  assert.equal(originalCalls, 2);
+  assert.equal(replacementCalls, 0);
+  assert.deepEqual(Object.keys(result.states), ["a", "b"]);
+});
+
+test("recovery rejects a valid per-task history that violates dependency order", async () => {
+  const base = new MemoryCheckpointStore();
+  let calls = 0;
+  const tasks = [
+    task("a", [], async () => ++calls),
+    task("b", ["a"], async () => ++calls),
+  ];
+  await runWorkflow(tasks, options(base));
+  const saved = decodeCheckpoint(await base.load("test-run"));
+  const reordered = [
+    saved.events[0],
+    saved.events[2],
+    saved.events[1],
+    saved.events[3],
+  ].map((event, i) => ({ ...event, sequence: i + 1 }));
+  const store: CheckpointStore = {
+    load: async () => ({ ...saved, events: reordered }),
+    save: async () => {
+      assert.fail("Invalid history must not be written");
+    },
+  };
+  await assert.rejects(runWorkflow(tasks, options(store)), /dependency order/);
+  assert.equal(calls, 2);
+});
+
+test("numeric task IDs and duplicate events cannot pass checkpoint decoding", async () => {
+  const store = new MemoryCheckpointStore();
+  await runWorkflow([task("1")], options(store));
+  const saved = decodeCheckpoint(await store.load("test-run"));
+  assert.throws(
+    () =>
+      decodeCheckpoint({
+        ...saved,
+        events: saved.events.map((event) => ({ ...event, taskId: 1 })),
+      }),
+    /Invalid/,
+  );
+  assert.throws(
+    () =>
+      decodeCheckpoint({
+        ...saved,
+        revision: saved.revision + 1,
+        events: [...saved.events, { ...saved.events[1], sequence: 3 }],
+      }),
+    /Invalid/,
+  );
+});

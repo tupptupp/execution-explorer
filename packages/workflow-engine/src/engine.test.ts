@@ -144,3 +144,36 @@ test("deep chain without recursion overflow", async () => {
   const r = await runWorkflow(chain);
   assert.equal(r.states.n2999, "completed");
 });
+
+test("retry backoff doubles without relying on wall-clock timing", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let calls = 0;
+  const execution = runWorkflow(
+    [
+      {
+        id: "a",
+        retries: 2,
+        run: async () => {
+          if (++calls < 3) throw Error("temporary");
+          return "ok";
+        },
+      },
+    ],
+    { retryDelayMs: 100 },
+  );
+  const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+  await flush();
+  assert.equal(calls, 1);
+  t.mock.timers.tick(99);
+  await flush();
+  assert.equal(calls, 1);
+  t.mock.timers.tick(1);
+  await flush();
+  assert.equal(calls, 2);
+  t.mock.timers.tick(199);
+  await flush();
+  assert.equal(calls, 2);
+  t.mock.timers.tick(1);
+  assert.equal((await execution).values.a, "ok");
+  assert.equal(calls, 3);
+});

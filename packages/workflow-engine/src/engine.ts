@@ -261,6 +261,7 @@ export function decodeCheckpoint(input: unknown): Checkpoint {
       if (
         !e ||
         e.sequence !== i + 1 ||
+        typeof e.taskId !== "string" ||
         !own(data.states, e.taskId) ||
         !eventsAllowed.has(e.type) ||
         !Number.isSafeInteger(e.attempt) ||
@@ -368,6 +369,16 @@ export async function runWorkflow(
   options: EngineOptions = {},
   signal?: AbortSignal,
 ): Promise<Result> {
+  // Own the definition and option values before the first asynchronous boundary.
+  // TypeScript readonly does not prevent a caller from mutating its originals.
+  tasks = tasks.map((task) => ({
+    id: task.id,
+    run: task.run,
+    retries: task.retries,
+    timeoutMs: task.timeoutMs,
+    dependsOn: [...(task.dependsOn ?? [])],
+  }));
+  options = { ...options };
   const concurrency = options.concurrency ?? 2;
   const timeout = options.defaultTimeoutMs ?? 30000;
   const retryDelay = options.retryDelayMs ?? 0;
@@ -397,15 +408,20 @@ export async function runWorkflow(
       tasks.some((t) => !own(previous.states, t.id)))
   )
     throw new CheckpointError("Checkpoint task set changed");
-  if (
-    previous &&
-    tasks.some(
-      (t) =>
-        previous.states[t.id] === "completed" &&
-        (t.dependsOn ?? []).some((d) => previous.states[d] !== "completed"),
-    )
-  )
-    throw new CheckpointError("Checkpoint violates dependency order");
+  if (previous) {
+    const byId = new Map(tasks.map((task) => [task.id, task]));
+    const completed = new Set<string>();
+    for (const event of previous.events) {
+      if (
+        event.type === "started" &&
+        (byId.get(event.taskId)!.dependsOn ?? []).some(
+          (id) => !completed.has(id),
+        )
+      )
+        throw new CheckpointError("Checkpoint violates dependency order");
+      if (event.type === "completed") completed.add(event.taskId);
+    }
+  }
   if (
     previous &&
     tasks.some((t) => previous.states[t.id] !== "completed") &&
