@@ -35,8 +35,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Emit formatted mobile source for review
-        run: node -e "const fs=require('fs'),p=require('prettier');(async()=>{for(const f of ['tests/console.spec.ts','src/WorkflowGraph.tsx']){const s=await p.format(fs.readFileSync(f,'utf8'),{...await p.resolveConfig(f),filepath:f});console.log('FORMATTED_FILE:'+f+':'+Buffer.from(s).toString('base64'))}})().catch(e=>{console.error(e);process.exit(1)})"
       - run: npm run format:check
       - run: npm run build
       - run: npx playwright install --with-deps chromium
